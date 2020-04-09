@@ -1,0 +1,106 @@
+#include <PID_v1.h>
+
+#include<Wire.h>
+
+double desired_value=0;
+
+
+//Motor A
+const int motorPinA1  = 4;  
+const int motorPinA2  = 3; 
+const int motorA = 10;
+int speedA=0;
+//Motor B
+const int motorPinB3  = 6; 
+const int motorPinB4  = 7; 
+const int motorB = 11;
+int speedB=0;
+double generalspeed;
+//gyro
+const int MPU_addr=0x68;
+int16_t axis_X,axis_Y,axis_Z;
+int minVal=265;
+int maxVal=402;
+double x;
+double y;
+double z;
+
+double aggKp=4, aggKi=0.2, aggKd=1;
+double consKp=1, consKi=0.05, consKd=0.25;
+
+ PID myPID(&x, &generalspeed, &desired_value,2.1,0.08,0.02, DIRECT); /// 1.7  0.05 0.02
+
+ 
+void setup(){
+
+
+  Serial.begin(9600); // baud rate
+    //Set pins as outputs
+    pinMode(motorPinA1, OUTPUT);
+    pinMode(motorPinA2, OUTPUT);
+    pinMode(motorPinB3, OUTPUT);
+    pinMode(motorPinB4, OUTPUT);
+    
+  Wire.begin();
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+
+  //turn the PID on
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(-100, 100);
+  //Serial.begin(115200);
+}
+void loop(){
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_addr,14,true);
+  axis_X=Wire.read()<<8|Wire.read();
+  axis_Y=Wire.read()<<8|Wire.read();
+  axis_Z=Wire.read()<<8|Wire.read();
+    int xAng = map(axis_X,minVal,maxVal,-90,90);
+    int yAng = map(axis_Y,minVal,maxVal,-90,90);
+    int zAng = map(axis_Z,minVal,maxVal,-90,90);
+       x= RAD_TO_DEG * (atan2(-yAng, -zAng)+PI);
+       y= RAD_TO_DEG * (atan2(-xAng, -zAng)+PI);
+       z= RAD_TO_DEG * (atan2(-yAng, -xAng)+PI);
+      if(x>180)
+      x=x-360;
+     //Serial.print("Angle of inclination in X axis = ");
+     //Serial.println(x);
+     delay(100);
+
+  myPID.Compute();
+    analogWrite(motorPinA1, 0);
+    analogWrite(motorPinA2, 255);
+    analogWrite(motorPinB3, 0);
+    analogWrite(motorPinB4, 255);/*  if(generalspeed>0)
+{
+    analogWrite(motorPinA1, 255);
+    analogWrite(motorPinA2, 0);
+
+}
+else
+{
+
+    analogWrite(motorPinB3, 255);
+    analogWrite(motorPinB4, 0);
+}*/
+/*generalspeed = abs((int)x*4);
+if(generalspeed> 255)
+generalspeed = 255;
+if(generalspeed<0)
+generalspeed = 0;*/
+ Serial.println(x);
+ if(abs(x) <5)
+ {analogWrite(motorA, 200);
+  analogWrite(motorB, 200); 
+ }
+  else
+  {
+  analogWrite(motorA, 155-((int)generalspeed));
+  analogWrite(motorB, 155+((int)generalspeed));   
+  }
+}
